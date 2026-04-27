@@ -6,7 +6,7 @@ let io;
 const initializeSocket = (server) => {
   io = new Server(server, {
     cors: {
-      origin: process.env.FRONTEND_URL || '[localhost](http://localhost:5173)',
+      origin: process.env.FRONTEND_URL || 'https://esmagico-workflow-frontend.onrender.com',
       methods: ['GET', 'POST'],
       credentials: true
     }
