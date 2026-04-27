@@ -8,11 +8,11 @@ export const SocketProvider = ({ children }) => {
   const [socket, setSocket] = useState(null);
   const { token } = useAuth();
 
-    import.meta.env.VITE_SOCKET_URL || 'http://localhost:5000',
+    import.meta.env.VITE_SOCKET_URL || 'https://esmagico-workflow-frontend.onrender.com',
 
   useEffect(() => {
     if (token) {
-      const newSocket = io(import.meta.env.VITE_SOCKET_URL || 'http://localhost:5000', {
+      const newSocket = io(import.meta.env.VITE_SOCKET_URL || 'https://esmagico-workflow-frontend.onrender.com', {
         auth: { token }
       });
 
