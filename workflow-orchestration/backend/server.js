@@ -21,14 +21,11 @@ const io = initializeSocket(server);
 // Make io accessible to routes
 app.set('io', io);
 
-// ✅ FIXED CORS
-const allowedOrigins = [
-  'http://localhost:5173',
-  'https://esmagico-workflow-frontend.onrender.com'
-];
-
-app.use(cors());
-
+// Middleware
+app.use(cors({
+  origin: process.env.FRONTEND_URL || 'https://esmagico-workflow-frontend.onrender.com',
+  credentials: true
+}));
 app.use(express.json());
 
 // Routes
