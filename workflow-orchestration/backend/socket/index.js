@@ -1,61 +1,62 @@
-const express = require('express');
-const http = require('http');
-const cors = require('cors');
-const dotenv = require('dotenv');
-const connectDB = require('./config/db');
-const { initializeSocket } = require('./socket');
-const errorHandler = require('./middleware/errorHandler');
+const { Server } = require('socket.io');
+const jwt = require('jsonwebtoken');
 
-// Load env vars
-dotenv.config();
+let io;
 
-// Connect to database
-connectDB();
-
-const app = express();
-const server = http.createServer(app);
-
-// Initialize Socket.IO
-const io = initializeSocket(server);
-
-// Make io accessible to routes
-app.set('io', io);
-
-// ✅ FIXED CORS
-const allowedOrigins = [
-  'http://localhost:5173',
-  'https://esmagico-workflow-frontend.onrender.com'
-];
-
-app.use(cors({
-  origin: (origin, callback) => {
-    if (!origin || allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      callback(new Error('Not allowed by CORS'));
+const initializeSocket = (server) => {
+  io = new Server(server, {
+    cors: {
+      origin: process.env.FRONTEND_URL || 'https://esmagico-workflow-frontend.onrender.com',
+      methods: ['GET', 'POST'],
+      credentials: true
     }
-  },
-  credentials: true
-}));
+  });
 
-app.use(express.json());
+  // Authentication middleware
+  io.use((socket, next) => {
+    const token = socket.handshake.auth.token;
+    
+    if (!token) {
+      return next(new Error('Authentication required'));
+    }
 
-// Routes
-app.use('/api/auth', require('./routes/auth'));
-app.use('/api/projects', require('./routes/projects'));
-app.use('/api/tasks', require('./routes/tasks'));
-app.use('/api/webhooks', require('./routes/webhooks'));
+    try {
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      socket.userId = decoded.id;
+      next();
+    } catch (error) {
+      next(new Error('Invalid token'));
+    }
+  });
 
-// Health check
-app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString() });
-});
+  io.on('connection', (socket) => {
+    console.log(`User connected: ${socket.userId}`);
 
-// Error handler
-app.use(errorHandler);
+    // Join project rooms
+    socket.on('join-project', (projectId) => {
+      socket.join(`project:${projectId}`);
+      console.log(`User ${socket.userId} joined project ${projectId}`);
+    });
 
-const PORT = process.env.PORT || 5000;
+    socket.on('leave-project', (projectId) => {
+      socket.leave(`project:${projectId}`);
+      console.log(`User ${socket.userId} left project ${projectId}`);
+    });
 
-server.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-});
+    socket.on('disconnect', () => {
+      console.log(`User disconnected: ${socket.userId}`);
+    });
+  });
+
+  return io;
+};
+
+const emitToProject = (projectId, event, data) => {
+  if (io) {
+    io.to(`project:${projectId}`).emit(event, data);
+  }
+};
+
+const getIO = () => io;
+
+module.exports = { initializeSocket, emitToProject, getIO };
